@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Kafka Live Feed - Cyber Mode</title>
+
+    <style>
+        body {
+            background-color: #000;
+            color: #00ff00;
+            font-family: "Courier New", monospace;
+            margin: 0;
+        }
+
+        h2 {
+            text-align: center;
+            padding: 12px;
+            border-bottom: 1px solid #00ff00;
+            margin: 0;
+        }
+
+        #container {
+            padding: 15px;
+            height: 90vh;
+            overflow-y: auto;
+        }
+
+        .card {
+            border: 1px solid #00ff00;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: rgba(0, 255, 0, 0.04);
+            box-shadow: 0 0 6px #00ff00;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+
+        .type {
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .type-edit { color: #00ffff; }
+        .type-new { color: #ffcc00; }
+        .type-log { color: #ff6666; }
+        .type-categorize { color: #66ff66; }
+
+        .title {
+            font-size: 14px;
+            margin-bottom: 5px;
+            color: #00ff00;
+        }
+
+        .meta {
+            font-size: 11px;
+            color: #66ff66;
+        }
+
+        details {
+            margin-top: 8px;
+            border-top: 1px dashed #00ff00;
+            padding-top: 5px;
+        }
+
+        summary {
+            cursor: pointer;
+            color: #00ffcc;
+            font-size: 12px;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 11px;
+            color: #00ff00;
+            margin: 5px 0 0 0;
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>⚡ Wikimedia Kafka Stream Monitor</h2>
+<div id="container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
+
+<script>
+    const socket = new SockJS('http://localhost:8020/ws');
+    const stompClient = Stomp.over(socket);
+
+    const container = document.getElementById("container");
+
+    function getTypeClass(type) {
+        return "type-" + (type || "log");
+    }
+
+    function createCard(data) {
+
+        const div = document.createElement("div");
+        div.className = "card";
+
+        const typeClass = getTypeClass(data.type);
+
+        const title = data.title || "No Title";
+        const user = data.user || "unknown";
+        const domain = data.meta?.domain || "unknown";
+
+        div.innerHTML = `
+        <div class="topbar">
+            <div class="type ${typeClass}">[${data.type || "event"}]</div>
+            <div class="meta">${user} @ ${domain}</div>
+        </div>
+
+        <div class="title">${title}</div>
+
+        <details>
+            <summary>View Raw JSON</summary>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+        </details>
+    `;
+
+        container.prepend(div);
+
+        // keep latest on top
+        container.scrollTop = 0;
+    }
+
+    stompClient.connect({}, function () {
+        stompClient.subscribe('/topic/wikimedia', function (msg) {
+            try {
+                const data = JSON.parse(msg.body);
+                createCard(data);
+            } catch (e) {
+                console.error("Invalid JSON", e);
+            }
+        });
+    });
+</script>
+
+</body>
+</html>
